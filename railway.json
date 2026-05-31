@@ -1,0 +1,8 @@
+{
+  "build": {
+    "installCommand": "npm ci"
+  },
+  "deploy": {
+    "startCommand": "npm start"
+  }
+}
