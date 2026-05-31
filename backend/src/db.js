@@ -10,9 +10,19 @@ async function ensureDatabase() {
     user: config.db.user,
     password: config.db.password,
     multipleStatements: true,
+    ...(config.db.ssl ? { ssl: config.db.ssl } : {}),
   });
 
-  await connection.query(`CREATE DATABASE IF NOT EXISTS \`${config.db.name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+  if (!config.db.name) {
+    throw new Error('DATABASE_NAME is required. Configure DB_NAME or use a URL with a database name.');
+  }
+
+  try {
+    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${config.db.name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+  } catch (error) {
+    console.warn('Não foi possível criar o banco de dados automaticamente:', error.message);
+  }
+
   await connection.query(`USE \`${config.db.name}\`;`);
 
   const schemaPath = path.join(__dirname, '..', 'sql', 'schema.sql');

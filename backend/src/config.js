@@ -1,14 +1,38 @@
 require('dotenv').config();
 
+function parseDatabaseUrl(url) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const sslParam = parsed.searchParams.get('ssl') || parsed.searchParams.get('sslmode');
+    const ssl = sslParam ? { rejectUnauthorized: false } : undefined;
+    return {
+      host: parsed.hostname,
+      port: Number(parsed.port || 3306),
+      user: decodeURIComponent(parsed.username || ''),
+      password: decodeURIComponent(parsed.password || ''),
+      name: parsed.pathname?.replace(/^\//, '') || undefined,
+      ssl,
+    };
+  } catch (error) {
+    console.warn('DATABASE_URL parsing failed:', error.message);
+    return null;
+  }
+}
+
+const dbUrl = parseDatabaseUrl(process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.CLEARDB_DATABASE_URL);
+
+const defaultDb = {
+  host: process.env.DB_HOST || 'localhost',
+  port: Number(process.env.DB_PORT || 3306),
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  name: process.env.DB_NAME || 'ultrabarber_crm',
+};
+
 module.exports = {
   port: process.env.PORT || 4000,
-  db: {
-    host: process.env.DB_HOST || 'localhost',
-    port: Number(process.env.DB_PORT || 3306),
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    name: process.env.DB_NAME || 'ultrabarber_crm',
-  },
+  db: dbUrl || defaultDb,
   evolution: {
     apiKey: process.env.EVOLUTION_API_KEY,
     instanceId: process.env.EVOLUTION_INSTANCE_ID,
