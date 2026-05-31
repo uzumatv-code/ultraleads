@@ -3,10 +3,10 @@ const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 const config = require('./config');
+const db = require('./db');
 const leadsRouter = require('./routes/leads');
 const messagesRouter = require('./routes/messages');
 const dashboardRouter = require('./routes/dashboard');
-const pool = require('./db');
 
 const app = express();
 app.use(cors());
@@ -39,6 +39,7 @@ if (fs.existsSync(staticPath)) {
 
 app.listen(config.port, async () => {
   try {
+    const pool = await db.getPool();
     await pool.getConnection();
     console.log('Conectado ao MySQL.');
   } catch (error) {

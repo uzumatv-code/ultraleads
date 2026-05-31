@@ -1,10 +1,11 @@
 const express = require('express');
-const pool = require('../db');
+const { getPool } = require('../db');
 
 const router = express.Router();
 
 router.get('/', async (req, res) => {
   try {
+    const pool = await getPool();
     const [leadCountRows] = await pool.query('SELECT status, COUNT(*) AS count FROM leads GROUP BY status');
     const [messageCountRows] = await pool.query("SELECT COUNT(*) AS count FROM messages WHERE direction = 'sent'");
     const [responseCountRows] = await pool.query("SELECT COUNT(*) AS count FROM leads WHERE status IN ('respondeu','interessado','reuniao_marcada','cliente')");

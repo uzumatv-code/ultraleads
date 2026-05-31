@@ -1,5 +1,5 @@
 const express = require('express');
-const pool = require('../db');
+const { getPool } = require('../db');
 const config = require('../config');
 const { sendWhatsAppMessage } = require('../utils/evolutionClient');
 const { Configuration, OpenAIApi } = require('openai');
@@ -12,6 +12,7 @@ const openai = config.openaiKey
 
 router.get('/:leadId', async (req, res) => {
   try {
+    const pool = await getPool();
     const [rows] = await pool.query('SELECT * FROM messages WHERE lead_id = ? ORDER BY sent_at DESC', [req.params.leadId]);
     res.json(rows);
   } catch (error) {
@@ -23,6 +24,7 @@ router.get('/:leadId', async (req, res) => {
 router.post('/:leadId/generate', async (req, res) => {
   const { leadId } = req.params;
   try {
+    const pool = await getPool();
     const [leadRows] = await pool.query('SELECT * FROM leads WHERE id = ?', [leadId]);
     const lead = leadRows[0];
     if (!lead) return res.status(404).json({ error: 'Lead não encontrado.' });
@@ -59,6 +61,7 @@ router.post('/:leadId/send', async (req, res) => {
   }
 
   try {
+    const pool = await getPool();
     const [leadRows] = await pool.query('SELECT * FROM leads WHERE id = ?', [leadId]);
     const lead = leadRows[0];
     if (!lead) return res.status(404).json({ error: 'Lead não encontrado.' });

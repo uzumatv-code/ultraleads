@@ -1,5 +1,5 @@
 const express = require('express');
-const pool = require('../db');
+const { getPool } = require('../db');
 const router = express.Router();
 
 const VALID_STATUSES = [
@@ -15,6 +15,7 @@ const VALID_STATUSES = [
 router.get('/', async (req, res) => {
   const status = req.query.status;
   try {
+    const pool = await getPool();
     const [rows] = await pool.query(
       status && VALID_STATUSES.includes(status)
         ? 'SELECT * FROM leads WHERE status = ? ORDER BY updated_at DESC'
@@ -33,6 +34,7 @@ router.post('/', async (req, res) => {
   const leadStatus = VALID_STATUSES.includes(status) ? status : 'novo';
 
   try {
+    const pool = await getPool();
     const [result] = await pool.query(
       'INSERT INTO leads (name, phone, neighborhood, address, instagram, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [name, phone, neighborhood, address, instagram, notes, leadStatus]
@@ -51,6 +53,7 @@ router.put('/:id', async (req, res) => {
   const leadStatus = VALID_STATUSES.includes(status) ? status : 'novo';
 
   try {
+    const pool = await getPool();
     await pool.query(
       'UPDATE leads SET name = ?, phone = ?, neighborhood = ?, address = ?, instagram = ?, notes = ?, status = ?, last_contact_date = ?, updated_at = NOW() WHERE id = ?',
       [name, phone, neighborhood, address, instagram, notes, leadStatus, last_contact_date || null, id]
@@ -65,6 +68,7 @@ router.put('/:id', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
+    const pool = await getPool();
     const [rows] = await pool.query('SELECT * FROM leads WHERE id = ?', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Lead não encontrado.' });
     res.json(rows[0]);
@@ -76,6 +80,7 @@ router.get('/:id', async (req, res) => {
 
 router.get('/:id/followup', async (req, res) => {
   try {
+    const pool = await getPool();
     const [rows] = await pool.query('SELECT * FROM leads WHERE id = ?', [req.params.id]);
     const lead = rows[0];
     if (!lead) return res.status(404).json({ error: 'Lead não encontrado.' });
