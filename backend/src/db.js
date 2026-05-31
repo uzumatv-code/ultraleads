@@ -3,28 +3,18 @@ const fs = require('fs');
 const path = require('path');
 const config = require('./config');
 
-async function ensureDatabase() {
-  const connection = await mysql.createConnection({
+async function connectDatabase(options) {
+  return mysql.createConnection({
     host: config.db.host,
     port: config.db.port,
     user: config.db.user,
     password: config.db.password,
-    multipleStatements: true,
+    ...(options.database ? { database: options.database } : {}),
     ...(config.db.ssl ? { ssl: config.db.ssl } : {}),
   });
+}
 
-  if (!config.db.name) {
-    throw new Error('DATABASE_NAME is required. Configure DB_NAME or use a URL with a database name.');
-  }
-
-  try {
-    await connection.query(`CREATE DATABASE IF NOT EXISTS \`${config.db.name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
-  } catch (error) {
-    console.warn('Não foi possível criar o banco de dados automaticamente:', error.message);
-  }
-
-  await connection.query(`USE \`${config.db.name}\`;`);
-
+async function initializeSchema(connection) {
   const schemaPath = path.join(__dirname, '..', 'sql', 'schema.sql');
   const schemaSql = fs.readFileSync(schemaPath, 'utf8');
   const statements = schemaSql
@@ -35,8 +25,44 @@ async function ensureDatabase() {
   for (const statement of statements) {
     await connection.query(statement);
   }
+}
 
-  await connection.end();
+async function ensureDatabase() {
+  if (!config.db.name) {
+    throw new Error('DATABASE_NAME is required. Configure DB_NAME or use a URL with a database name.');
+  }
+
+  let connection;
+  try {
+    connection = await connectDatabase({ database: config.db.name });
+    await initializeSchema(connection);
+    return;
+  } catch (error) {
+    if (error.code !== 'ER_BAD_DB_ERROR' && error.code !== 'ER_BAD_DB_ERR' && error.code !== 'ER_ACCESS_DENIED_ERROR') {
+      throw error;
+    }
+  } finally {
+    if (connection) {
+      await connection.end();
+    }
+  }
+
+  const adminConnection = await connectDatabase({});
+  try {
+    try {
+      await adminConnection.query(`CREATE DATABASE IF NOT EXISTS \`${config.db.name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+    } catch (createError) {
+      console.warn('Não foi possível criar o banco de dados automaticamente:', createError.message);
+    }
+    await adminConnection.end();
+
+    connection = await connectDatabase({ database: config.db.name });
+    await initializeSchema(connection);
+  } finally {
+    if (connection) {
+      await connection.end();
+    }
+  }
 }
 
 let pool;
@@ -52,6 +78,7 @@ async function getPool() {
       database: config.db.name,
       waitForConnections: true,
       connectionLimit: 10,
+      ...(config.db.ssl ? { ssl: config.db.ssl } : {}),
     });
   }
 
