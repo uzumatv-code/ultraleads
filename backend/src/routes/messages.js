@@ -1,14 +1,8 @@
 const express = require('express');
 const { getPool } = require('../db');
 const config = require('../config');
-const { sendWhatsAppMessage } = require('../utils/evolutionClient');
-const { Configuration, OpenAIApi } = require('openai');
 
 const router = express.Router();
-
-const openai = config.openaiKey
-  ? new OpenAIApi(new Configuration({ apiKey: config.openaiKey }))
-  : null;
 
 router.get('/:leadId', async (req, res) => {
   try {
@@ -32,13 +26,19 @@ router.post('/:leadId/generate', async (req, res) => {
     const prompt = `Escreva uma mensagem curta, educada e direta para uma barbearia chamada ${lead.name} localizada no bairro ${lead.neighborhood}. Pergunte se eles trabalham com agenda marcada ou ordem de chegada e destaque que nosso SaaS UltraBarber ajuda a organizar atendimentos e reduzir espera. A mensagem deve ser personalizada, não parecer spam e ficar abaixo de 280 caracteres.`;
     let text;
 
-    if (openai) {
-      const response = await openai.createChatCompletion({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 120,
-      });
-      text = response.data.choices?.[0]?.message?.content?.trim();
+    if (config.openaiKey) {
+      try {
+        const { Configuration, OpenAIApi } = require('openai');
+        const openai = new OpenAIApi(new Configuration({ apiKey: config.openaiKey }));
+        const response = await openai.createChatCompletion({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          max_tokens: 120,
+        });
+        text = response.data.choices?.[0]?.message?.content?.trim();
+      } catch (openaiError) {
+        console.warn('OpenAI generation failed:', openaiError?.message || openaiError);
+      }
     }
 
     if (!text) {
@@ -75,6 +75,7 @@ router.post('/:leadId/send', async (req, res) => {
       return res.status(400).json({ error: `Limite diário de ${config.dailyLimit} mensagens atingido.` });
     }
 
+    const { sendWhatsAppMessage } = require('../utils/evolutionClient');
     await sendWhatsAppMessage(lead.phone, text);
 
     await pool.query(
