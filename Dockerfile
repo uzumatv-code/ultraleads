@@ -16,6 +16,7 @@ COPY . ./
 # Build do frontend antes de iniciar
 RUN npm run build --workspace frontend
 
-EXPOSE 4000
+EXPOSE 8080
+ENV PORT=8080
 
 CMD ["npm", "run", "start", "--workspace", "backend"]
