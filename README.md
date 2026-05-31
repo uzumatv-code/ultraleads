@@ -30,6 +30,18 @@ Sistema simples de CRM de prospecção para vender o SaaS UltraBarber a barbeari
    - `npm run server` para backend isolado.
    - `npm run client` para frontend isolado.
 
+## Instalação com Docker Compose
+
+1. Certifique-se de ter o Docker instalado.
+2. Execute `docker compose up --build -d` na raiz do projeto.
+3. O serviço MySQL será provisionado automaticamente e o backend tentará criar o banco e aplicar as tabelas ao conectar.
+4. Acesse o backend em `http://localhost:4000`.
+
+Você também pode usar os scripts de instalação:
+
+- `./install.sh` (Linux/macOS)
+- `.\install.ps1` (Windows PowerShell)
+
 ## Deploy no Railway
 
 - Configure uma instância MySQL no Railway.

@@ -18,4 +18,4 @@ RUN npm run build --workspace frontend
 
 EXPOSE 4000
 
-CMD ["npm", "run", "start"]
+CMD ["npm", "run", "start", "--workspace", "backend"]
