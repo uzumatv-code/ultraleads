@@ -4,13 +4,14 @@ const path = require('path');
 const config = require('./config');
 
 async function connectDatabase(options) {
+  console.log(`Tentando conectar ao MySQL em ${config.db.host}:${config.db.port}${options.database ? `/${options.database}` : ''}`);
   return mysql.createConnection({
     host: config.db.host,
     port: config.db.port,
     user: config.db.user,
     password: config.db.password,
     ...(options.database ? { database: options.database } : {}),
-    connectTimeout: 10000,
+    connectTimeout: 20000,
     ...(config.db.ssl ? { ssl: config.db.ssl } : {}),
   });
 }
@@ -50,8 +51,8 @@ async function ensureDatabase() {
     }
   }
 
-  const maxAttempts = 8;
-  const waitMs = 3000;
+  const maxAttempts = 12;
+  const waitMs = 5000;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       const adminConnection = await connectDatabase({});

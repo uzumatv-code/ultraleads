@@ -37,13 +37,18 @@ if (fs.existsSync(staticPath)) {
   console.warn('Pasta de frontend não encontrada em', staticPath);
 }
 
-app.listen(config.port, async () => {
+async function startServer() {
   try {
     const pool = await db.getPool();
     await pool.getConnection();
-    console.log('Conectado ao MySQL.');
+    app.listen(config.port, () => {
+      console.log('Conectado ao MySQL.');
+      console.log(`Backend rodando em http://localhost:${config.port}`);
+    });
   } catch (error) {
     console.error('Não foi possível conectar ao MySQL:', error);
+    process.exit(1);
   }
-  console.log(`Backend rodando em http://localhost:${config.port}`);
-});
+}
+
+startServer();
