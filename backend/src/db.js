@@ -10,6 +10,7 @@ async function connectDatabase(options) {
     user: config.db.user,
     password: config.db.password,
     ...(options.database ? { database: options.database } : {}),
+    connectTimeout: 10000,
     ...(config.db.ssl ? { ssl: config.db.ssl } : {}),
   });
 }
@@ -42,9 +43,7 @@ async function ensureDatabase() {
     await initializeSchema(connection);
     return;
   } catch (error) {
-    if (error.code !== 'ER_BAD_DB_ERROR' && error.code !== 'ER_BAD_DB_ERR' && error.code !== 'ER_ACCESS_DENIED_ERROR') {
-      throw error;
-    }
+    console.warn('Primeira tentativa de conexão falhou:', error.message || error);
   } finally {
     if (connection) {
       await connection.end();
@@ -71,7 +70,7 @@ async function ensureDatabase() {
       if (attempt === maxAttempts) {
         throw retryError;
       }
-      console.warn(`Banco de dados não disponível ainda (tentativa ${attempt}). Aguardando ${waitMs}ms...`);
+      console.warn(`Banco de dados não disponível ainda (tentativa ${attempt}). Aguardando ${waitMs}ms...`, retryError.message || retryError);
       await sleep(waitMs);
     } finally {
       if (connection) {
