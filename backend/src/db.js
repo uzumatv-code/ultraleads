@@ -27,6 +27,10 @@ async function initializeSchema(connection) {
   }
 }
 
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function ensureDatabase() {
   if (!config.db.name) {
     throw new Error('DATABASE_NAME is required. Configure DB_NAME or use a URL with a database name.');
@@ -47,20 +51,33 @@ async function ensureDatabase() {
     }
   }
 
-  const adminConnection = await connectDatabase({});
-  try {
+  const maxAttempts = 8;
+  const waitMs = 3000;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
-      await adminConnection.query(`CREATE DATABASE IF NOT EXISTS \`${config.db.name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
-    } catch (createError) {
-      console.warn('Não foi possível criar o banco de dados automaticamente:', createError.message);
-    }
-    await adminConnection.end();
+      const adminConnection = await connectDatabase({});
+      try {
+        await adminConnection.query(`CREATE DATABASE IF NOT EXISTS \`${config.db.name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`);
+      } catch (createError) {
+        console.warn('Não foi possível criar o banco de dados automaticamente:', createError.message);
+      } finally {
+        await adminConnection.end();
+      }
 
-    connection = await connectDatabase({ database: config.db.name });
-    await initializeSchema(connection);
-  } finally {
-    if (connection) {
-      await connection.end();
+      connection = await connectDatabase({ database: config.db.name });
+      await initializeSchema(connection);
+      return;
+    } catch (retryError) {
+      if (attempt === maxAttempts) {
+        throw retryError;
+      }
+      console.warn(`Banco de dados não disponível ainda (tentativa ${attempt}). Aguardando ${waitMs}ms...`);
+      await sleep(waitMs);
+    } finally {
+      if (connection) {
+        await connection.end();
+        connection = null;
+      }
     }
   }
 }

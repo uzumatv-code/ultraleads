@@ -36,9 +36,13 @@ const defaultDb = {
   name: process.env.DB_NAME || 'ultrabarber_crm',
 };
 
+const dbConfig = dbUrl || defaultDb;
+const envPort = Number(process.env.PORT || 0);
+const port = envPort && dbConfig.port && envPort === dbConfig.port ? 8080 : envPort || 8080;
+
 module.exports = {
-  port: process.env.PORT || 4000,
-  db: dbUrl || defaultDb,
+  port,
+  db: dbConfig,
   evolution: {
     apiKey: process.env.EVOLUTION_API_KEY,
     instanceId: process.env.EVOLUTION_INSTANCE_ID,
