@@ -15,12 +15,18 @@ function parseDatabaseUrl(url) {
       ssl,
     };
   } catch (error) {
-    console.warn('DATABASE_URL parsing failed:', error.message);
+    console.warn('DATABASE URL parsing failed:', error.message);
     return null;
   }
 }
 
-const dbUrl = parseDatabaseUrl(process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.CLEARDB_DATABASE_URL);
+const dbUrl = parseDatabaseUrl(
+  process.env.DATABASE_URL ||
+  process.env.RAILWAY_DATABASE_URL ||
+  process.env.MYSQL_URL ||
+  process.env.MYSQL_URI ||
+  process.env.CLEARDB_DATABASE_URL
+);
 
 const defaultDb = {
   host: process.env.DB_HOST || 'localhost',

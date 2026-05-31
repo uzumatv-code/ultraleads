@@ -43,7 +43,7 @@ app.listen(config.port, async () => {
     await pool.getConnection();
     console.log('Conectado ao MySQL.');
   } catch (error) {
-    console.warn('Não foi possível conectar ao MySQL:', error.message);
+    console.error('Não foi possível conectar ao MySQL:', error);
   }
   console.log(`Backend rodando em http://localhost:${config.port}`);
 });
