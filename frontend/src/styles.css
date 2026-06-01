@@ -397,9 +397,23 @@ textarea {
   border: 1px solid #e5e7eb;
 }
 .history-list span {
-  display: block;
+  display: flex;
+  gap: 10px;
+  align-items: center;
   color: #6b7280;
   margin-bottom: 8px;
+}
+.history-list strong {
+  color: #111827;
+}
+.history-received {
+  border-left: 4px solid #60a5fa;
+}
+.history-suggested {
+  border-left: 4px solid #a78bfa;
+}
+.history-sent {
+  border-left: 4px solid #34d399;
 }
 .toast {
   position: fixed;

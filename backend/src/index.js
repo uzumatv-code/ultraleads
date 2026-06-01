@@ -8,6 +8,7 @@ const leadsRouter = require('./routes/leads');
 const messagesRouter = require('./routes/messages');
 const dashboardRouter = require('./routes/dashboard');
 const aiSettingsRouter = require('./routes/aiSettings');
+const webhooksRouter = require('./routes/webhooks');
 
 const app = express();
 app.use(cors());
@@ -17,6 +18,7 @@ app.use('/api/leads', leadsRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/ai-settings', aiSettingsRouter);
+app.use('/api/webhooks', webhooksRouter);
 
 app.get('/api/settings', (req, res) => {
   res.json({ dailyLimit: config.dailyLimit });

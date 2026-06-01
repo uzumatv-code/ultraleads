@@ -158,7 +158,7 @@ router.put('/:id', async (req, res) => {
   const leadStatus = VALID_STATUSES.includes(status) ? status : 'novo';
 
   if (!name || typeof name !== 'string') {
-    return res.status(400).json({ error: 'Nome da barbearia Ã© obrigatÃ³rio.' });
+    return res.status(400).json({ error: 'Nome da barbearia é obrigatório.' });
   }
 
   try {

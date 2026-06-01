@@ -15,13 +15,14 @@ CREATE TABLE IF NOT EXISTS leads (
 CREATE TABLE IF NOT EXISTS messages (
   id INT AUTO_INCREMENT PRIMARY KEY,
   lead_id INT NOT NULL,
-  direction ENUM('sent','received') NOT NULL DEFAULT 'sent',
+  direction ENUM('sent','received','suggested') NOT NULL DEFAULT 'sent',
   content TEXT NOT NULL,
   sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (lead_id) REFERENCES leads(id) ON DELETE CASCADE
 );
 
 ALTER TABLE leads MODIFY phone VARCHAR(64) NULL;
+ALTER TABLE messages MODIFY direction ENUM('sent','received','suggested') NOT NULL DEFAULT 'sent';
 
 CREATE TABLE IF NOT EXISTS ai_settings (
   id TINYINT PRIMARY KEY DEFAULT 1,

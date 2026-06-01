@@ -109,6 +109,8 @@ function LeadsPage() {
         fetch(`/api/messages/${lead.id}`).then((res) => res.json()),
       ]);
       if (suggest.eligible) setSuggestion(suggest.suggestion);
+      const aiSuggestion = historyData.find((item) => item.direction === 'suggested');
+      if (aiSuggestion) setSuggestion(`Resposta sugerida pela IA: ${aiSuggestion.content}`);
       setHistory(historyData);
     } catch (err) {
       console.error(err);
@@ -542,8 +544,17 @@ function LeadsPage() {
             ) : (
               <ul className="history-list">
                 {history.map((item) => (
-                  <li key={item.id}>
-                    <span>{new Date(item.sent_at).toLocaleString()}</span>
+                  <li key={item.id} className={`history-${item.direction}`}>
+                    <span>
+                      <strong>
+                        {item.direction === 'sent'
+                          ? 'Enviada'
+                          : item.direction === 'received'
+                            ? 'Recebida'
+                            : 'Sugestao IA'}
+                      </strong>
+                      {new Date(item.sent_at).toLocaleString()}
+                    </span>
                     <p>{item.content}</p>
                   </li>
                 ))}
