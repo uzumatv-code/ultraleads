@@ -22,7 +22,6 @@ function buildLeadForm(lead = {}) {
     instagram: lead.instagram || '',
     notes: lead.notes || '',
     status: lead.status || 'novo',
-    last_contact_date: lead.last_contact_date || '',
   };
 }
 

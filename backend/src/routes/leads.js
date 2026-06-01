@@ -154,7 +154,7 @@ router.post('/import', async (req, res) => {
 
 router.put('/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, phone, neighborhood, address, instagram, notes, status, last_contact_date } = req.body;
+  const { name, phone, neighborhood, address, instagram, notes, status } = req.body;
   const leadStatus = VALID_STATUSES.includes(status) ? status : 'novo';
 
   if (!name || typeof name !== 'string') {
@@ -164,8 +164,8 @@ router.put('/:id', async (req, res) => {
   try {
     const pool = await getPool();
     await pool.query(
-      'UPDATE leads SET name = ?, phone = ?, neighborhood = ?, address = ?, instagram = ?, notes = ?, status = ?, last_contact_date = ?, updated_at = NOW() WHERE id = ?',
-      [name, phone, neighborhood, address, instagram, notes, leadStatus, last_contact_date || null, id]
+      'UPDATE leads SET name = ?, phone = ?, neighborhood = ?, address = ?, instagram = ?, notes = ?, status = ?, updated_at = NOW() WHERE id = ?',
+      [name, phone, neighborhood, address, instagram, notes, leadStatus, id]
     );
     const [rows] = await pool.query('SELECT * FROM leads WHERE id = ?', [id]);
     res.json(rows[0]);
