@@ -77,7 +77,14 @@ router.post('/:leadId/send', async (req, res) => {
       return res.status(400).json({ error: `Limite diário de ${config.dailyLimit} mensagens atingido.` });
     }
 
-    const { sendWhatsAppMessage } = require('../utils/evolutionClient');
+    const { checkWhatsAppNumber, sendWhatsAppMessage } = require('../utils/evolutionClient');
+    const whatsappCheck = await checkWhatsAppNumber(lead.phone);
+    if (!whatsappCheck.exists) {
+      return res.status(400).json({
+        error: `O telefone ${whatsappCheck.number || lead.phone} nao aparece como WhatsApp valido na Evolution. Edite o lead com um WhatsApp valido antes de enviar.`,
+      });
+    }
+
     await sendWhatsAppMessage(lead.phone, text);
 
     await pool.query(

@@ -14,7 +14,9 @@ function normalizePhone(phone) {
 function getEvolutionError(error) {
   const status = error.response?.status || 500;
   const data = error.response?.data;
+  const invalidNumber = data?.response?.message?.find?.((item) => item && item.exists === false);
   const apiMessage =
+    (invalidNumber ? `O telefone ${invalidNumber.number} nao aparece como WhatsApp valido na Evolution.` : null) ||
     data?.message ||
     data?.error ||
     data?.response?.message ||
@@ -27,6 +29,48 @@ function getEvolutionError(error) {
     message: `Evolution API: ${apiMessage}`,
     details,
   };
+}
+
+async function checkWhatsAppNumber(phone) {
+  const apiUrl = normalizeBaseUrl(config.evolution.apiUrl);
+  const instanceId = String(config.evolution.instanceId || '').trim();
+  const number = normalizePhone(phone);
+
+  if (!apiUrl || !config.evolution.apiKey || !instanceId) {
+    throw Object.assign(new Error('Configure EVOLUTION_API_URL, EVOLUTION_API_KEY e EVOLUTION_INSTANCE_ID.'), {
+      status: 400,
+    });
+  }
+
+  if (!number) {
+    return { number, exists: false };
+  }
+
+  try {
+    const response = await axios.post(
+      `${apiUrl}/chat/whatsappNumbers/${encodeURIComponent(instanceId)}`,
+      { numbers: [number] },
+      {
+        headers: {
+          apikey: config.evolution.apiKey,
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+      }
+    );
+    const result = Array.isArray(response.data) ? response.data[0] : response.data?.numbers?.[0];
+    return {
+      number,
+      exists: Boolean(result?.exists),
+      jid: result?.jid,
+    };
+  } catch (error) {
+    const evolutionError = getEvolutionError(error);
+    throw Object.assign(new Error(evolutionError.message), {
+      status: evolutionError.status,
+      details: evolutionError.details,
+    });
+  }
 }
 
 async function sendWhatsAppMessage(phone, text) {
@@ -77,4 +121,4 @@ async function sendWhatsAppMessage(phone, text) {
   }
 }
 
-module.exports = { sendWhatsAppMessage };
+module.exports = { checkWhatsAppNumber, sendWhatsAppMessage };

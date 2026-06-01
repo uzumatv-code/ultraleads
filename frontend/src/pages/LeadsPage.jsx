@@ -213,7 +213,7 @@ function LeadsPage() {
         body: JSON.stringify({ text: previewText }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Falha no envio');
+      if (!res.ok) throw new Error(data.error || data.details || 'Falha no envio');
       setNotification('Mensagem enviada com sucesso.');
       loadLeads();
       openLead(selected);
