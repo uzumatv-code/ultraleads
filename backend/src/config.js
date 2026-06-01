@@ -53,6 +53,5 @@ module.exports = {
     instanceId: process.env.EVOLUTION_INSTANCE_ID,
   },
   openaiKey: process.env.OPENAI_API_KEY,
-  googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY,
   dailyLimit: Number(process.env.DAILY_SEND_LIMIT || 10),
 };

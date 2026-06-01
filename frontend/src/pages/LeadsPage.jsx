@@ -209,7 +209,7 @@ function LeadsPage() {
     event.preventDefault();
     setDiscovering(true);
     setCandidates([]);
-    setNotification('Buscando leads no Google Maps e priorizando com IA...');
+    setNotification('A IA esta pesquisando leads na internet...');
     try {
       const res = await fetch('/api/leads/discover', {
         method: 'POST',
@@ -277,7 +277,7 @@ function LeadsPage() {
         <div className="section-heading">
           <div>
             <h2>Buscar novos leads com IA</h2>
-            <p>Encontre barbearias no Google Maps, priorize oportunidades e importe apenas o que fizer sentido.</p>
+            <p>A IA pesquisa na internet, cruza fontes publicas e importa apenas o que fizer sentido.</p>
           </div>
         </div>
         <form className="discovery-form" onSubmit={discoverLeads}>
@@ -335,7 +335,7 @@ function LeadsPage() {
                 </div>
                 <div className="candidate-data">
                   <span>{candidate.phone || 'WhatsApp a pesquisar'}</span>
-                  <span>{candidate.googleMapsUri || candidate.website || 'Perfil Google a validar'}</span>
+                  <span>{candidate.sourceUrl || candidate.googleMapsUri || candidate.website || 'Fonte web a validar'}</span>
                   {candidate.rating && (
                     <span>{candidate.rating} estrelas · {candidate.userRatingCount || 0} avaliacoes</span>
                   )}

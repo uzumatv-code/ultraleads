@@ -7,7 +7,7 @@ Sistema simples de CRM de prospecção para vender o SaaS UltraBarber a barbeari
 - Cadastro de leads com dados de contato e status.
 - Filtro de leads por status.
 - Geração de mensagem inicial personalizada com IA.
-- Busca de novos leads no Google Maps/Perfil da Empresa com priorização por IA.
+- Busca de novos leads com pesquisa web da IA e priorização automática.
 - Envio manual de WhatsApp via Evolution API com limite diário.
 - Histórico de mensagens por lead.
 - Sugestão de follow-up após 2 dias sem resposta.
@@ -52,13 +52,12 @@ Você também pode usar os scripts de instalação:
   - `EVOLUTION_API_KEY`
   - `EVOLUTION_INSTANCE_ID`
   - `OPENAI_API_KEY`
-  - `GOOGLE_MAPS_API_KEY`
   - `DAILY_SEND_LIMIT=10`
 - O `Dockerfile` faz o build do frontend durante a imagem e inicia apenas o backend em produção.
 - O `railway.json` define o start command `npm run start --workspace backend` e healthcheck em `/api/health`.
 - O backend aplica automaticamente `backend/sql/schema.sql` no database informado por `MYSQL_URL`.
 - O backend serve o frontend estático de `frontend/dist` em produção.
-- A busca de novos leads usa Google Places Text Search, com foco em resultados do Google Maps/Perfil da Empresa. Configure `GOOGLE_MAPS_API_KEY`; `OPENAI_API_KEY` ranqueia e explica os candidatos.
+- A busca de novos leads usa a ferramenta de pesquisa web da OpenAI via `OPENAI_API_KEY`, sem depender de API paga do Google. A IA pesquisa fontes públicas da internet, estrutura os candidatos e explica a prioridade.
 
 ## Observações
 

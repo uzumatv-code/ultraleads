@@ -101,6 +101,7 @@ router.post('/import', async (req, res) => {
     reason,
     nextStep,
     googleMapsUri,
+    sourceUrl,
     rating,
     userRatingCount,
   } = req.body;
@@ -113,6 +114,7 @@ router.post('/import', async (req, res) => {
   const aiNotes = [
     notes,
     source ? `Fonte: ${source}` : null,
+    sourceUrl ? `Fonte web: ${sourceUrl}` : null,
     googleMapsUri ? `Google Maps: ${googleMapsUri}` : null,
     rating ? `Avaliacao Google: ${rating} (${userRatingCount || 0} avaliacoes)` : null,
     reason ? `Motivo IA: ${reason}` : null,
