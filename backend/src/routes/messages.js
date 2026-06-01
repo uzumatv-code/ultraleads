@@ -2,6 +2,7 @@ const express = require('express');
 const { getPool } = require('../db');
 const config = require('../config');
 const { getOpenAIClient } = require('../utils/openaiClient');
+const { buildMessagePrompt, getAiSettings, getFallbackMessage } = require('../utils/aiSettings');
 
 const router = express.Router();
 
@@ -24,7 +25,8 @@ router.post('/:leadId/generate', async (req, res) => {
     const lead = leadRows[0];
     if (!lead) return res.status(404).json({ error: 'Lead não encontrado.' });
 
-    const prompt = `Escreva uma mensagem curta, educada e direta para uma barbearia chamada ${lead.name} localizada no bairro ${lead.neighborhood}. Pergunte se eles trabalham com agenda marcada ou ordem de chegada e destaque que nosso SaaS UltraBarber ajuda a organizar atendimentos e reduzir espera. A mensagem deve ser personalizada, não parecer spam e ficar abaixo de 280 caracteres.`;
+    const aiSettings = await getAiSettings(pool);
+    const prompt = buildMessagePrompt(lead, aiSettings);
     let text;
 
     if (config.openaiKey) {
@@ -42,7 +44,7 @@ router.post('/:leadId/generate', async (req, res) => {
     }
 
     if (!text) {
-      text = `Olá ${lead.name}, tudo bem? Gostaria de saber se vocês trabalham mais com agenda marcada ou ordem de chegada. O UltraBarber ajuda a organizar atendimentos e reduzir filas com mensagens via WhatsApp.`;
+      text = getFallbackMessage(lead, aiSettings);
     }
 
     res.json({ message: text });

@@ -89,7 +89,21 @@ router.post('/discover', async (req, res) => {
 });
 
 router.post('/import', async (req, res) => {
-  const { name, phone, neighborhood, address, instagram, notes, status, source, reason, nextStep } = req.body;
+  const {
+    name,
+    phone,
+    neighborhood,
+    address,
+    instagram,
+    notes,
+    status,
+    source,
+    reason,
+    nextStep,
+    googleMapsUri,
+    rating,
+    userRatingCount,
+  } = req.body;
   const leadStatus = VALID_STATUSES.includes(status) ? status : 'novo';
 
   if (!name || typeof name !== 'string') {
@@ -99,6 +113,8 @@ router.post('/import', async (req, res) => {
   const aiNotes = [
     notes,
     source ? `Fonte: ${source}` : null,
+    googleMapsUri ? `Google Maps: ${googleMapsUri}` : null,
+    rating ? `Avaliacao Google: ${rating} (${userRatingCount || 0} avaliacoes)` : null,
     reason ? `Motivo IA: ${reason}` : null,
     nextStep ? `Próximo passo: ${nextStep}` : null,
   ].filter(Boolean).join('\n');
@@ -138,6 +154,10 @@ router.put('/:id', async (req, res) => {
   const { id } = req.params;
   const { name, phone, neighborhood, address, instagram, notes, status, last_contact_date } = req.body;
   const leadStatus = VALID_STATUSES.includes(status) ? status : 'novo';
+
+  if (!name || typeof name !== 'string') {
+    return res.status(400).json({ error: 'Nome da barbearia Ã© obrigatÃ³rio.' });
+  }
 
   try {
     const pool = await getPool();

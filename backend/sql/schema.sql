@@ -22,3 +22,13 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 ALTER TABLE leads MODIFY phone VARCHAR(64) NULL;
+
+CREATE TABLE IF NOT EXISTS ai_settings (
+  id TINYINT PRIMARY KEY DEFAULT 1,
+  active_profile VARCHAR(64) NOT NULL DEFAULT 'local_opportunity',
+  custom_instructions TEXT,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT IGNORE INTO ai_settings (id, active_profile, custom_instructions)
+VALUES (1, 'local_opportunity', '');

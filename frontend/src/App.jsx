@@ -3,6 +3,7 @@ import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import LeadsPage from './pages/LeadsPage';
 import DashboardPage from './pages/DashboardPage';
 import LeadForm from './pages/LeadForm';
+import AiSettingsPage from './pages/AiSettingsPage';
 
 function App() {
   const location = useLocation();
@@ -23,6 +24,7 @@ function App() {
           <Link to="/" className={location.pathname === '/' ? 'active' : ''}>Dashboard</Link>
           <Link to="/leads" className={location.pathname.startsWith('/leads') ? 'active' : ''}>Leads</Link>
           <Link to="/new" className={location.pathname === '/new' ? 'active' : ''}>Novo lead</Link>
+          <Link to="/ai-settings" className={location.pathname === '/ai-settings' ? 'active' : ''}>IA</Link>
         </nav>
         <div className="sidebar-footer">
           <div>Limite diário: <strong>{settings.dailyLimit}</strong></div>
@@ -34,6 +36,7 @@ function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/leads" element={<LeadsPage />} />
           <Route path="/new" element={<LeadForm />} />
+          <Route path="/ai-settings" element={<AiSettingsPage />} />
         </Routes>
       </main>
     </div>

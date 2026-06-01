@@ -7,6 +7,7 @@ const db = require('./db');
 const leadsRouter = require('./routes/leads');
 const messagesRouter = require('./routes/messages');
 const dashboardRouter = require('./routes/dashboard');
+const aiSettingsRouter = require('./routes/aiSettings');
 
 const app = express();
 app.use(cors());
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use('/api/leads', leadsRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/dashboard', dashboardRouter);
+app.use('/api/ai-settings', aiSettingsRouter);
 
 app.get('/api/settings', (req, res) => {
   res.json({ dailyLimit: config.dailyLimit });

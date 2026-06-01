@@ -11,6 +11,21 @@ const STATUSES = [
   'cliente',
 ];
 
+const EDITABLE_STATUSES = STATUSES.filter((status) => status !== 'todos');
+
+function buildLeadForm(lead = {}) {
+  return {
+    name: lead.name || '',
+    phone: lead.phone || '',
+    neighborhood: lead.neighborhood || '',
+    address: lead.address || '',
+    instagram: lead.instagram || '',
+    notes: lead.notes || '',
+    status: lead.status || 'novo',
+    last_contact_date: lead.last_contact_date || '',
+  };
+}
+
 function LeadsPage() {
   const [leads, setLeads] = useState([]);
   const [statusFilter, setStatusFilter] = useState('todos');
@@ -18,6 +33,8 @@ function LeadsPage() {
   const [suggestion, setSuggestion] = useState('');
   const [message, setMessage] = useState('');
   const [history, setHistory] = useState([]);
+  const [editForm, setEditForm] = useState(buildLeadForm());
+  const [savingLead, setSavingLead] = useState(false);
   const [loading, setLoading] = useState(false);
   const [previewText, setPreviewText] = useState('');
   const [notification, setNotification] = useState('');
@@ -59,6 +76,7 @@ function LeadsPage() {
     setMessage('');
     setPreviewText('');
     setHistory([]);
+    setEditForm(buildLeadForm(lead));
     try {
       const [suggest, historyData] = await Promise.all([
         fetch(`/api/leads/${lead.id}/followup`).then((res) => res.json()),
@@ -68,6 +86,32 @@ function LeadsPage() {
       setHistory(historyData);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const saveLead = async (event) => {
+    event.preventDefault();
+    if (!selected) return;
+
+    setSavingLead(true);
+    setNotification('Salvando lead...');
+    try {
+      const res = await fetch(`/api/leads/${selected.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha ao salvar lead');
+
+      setSelected(data);
+      setEditForm(buildLeadForm(data));
+      setLeads((current) => current.map((lead) => (lead.id === data.id ? data : lead)));
+      setNotification('Dados do lead atualizados.');
+    } catch (err) {
+      setNotification(err.message || 'Erro ao salvar lead.');
+    } finally {
+      setSavingLead(false);
     }
   };
 
@@ -112,7 +156,7 @@ function LeadsPage() {
     event.preventDefault();
     setDiscovering(true);
     setCandidates([]);
-    setNotification('Buscando leads em fontes públicas e priorizando com IA...');
+    setNotification('Buscando leads no Google Maps e priorizando com IA...');
     try {
       const res = await fetch('/api/leads/discover', {
         method: 'POST',
@@ -180,7 +224,7 @@ function LeadsPage() {
         <div className="section-heading">
           <div>
             <h2>Buscar novos leads com IA</h2>
-            <p>Encontre barbearias em fontes públicas, priorize oportunidades e importe apenas o que fizer sentido.</p>
+            <p>Encontre barbearias no Google Maps, priorize oportunidades e importe apenas o que fizer sentido.</p>
           </div>
         </div>
         <form className="discovery-form" onSubmit={discoverLeads}>
@@ -238,7 +282,10 @@ function LeadsPage() {
                 </div>
                 <div className="candidate-data">
                   <span>{candidate.phone || 'WhatsApp a pesquisar'}</span>
-                  <span>{candidate.instagram || candidate.website || 'Presença digital a validar'}</span>
+                  <span>{candidate.googleMapsUri || candidate.website || 'Perfil Google a validar'}</span>
+                  {candidate.rating && (
+                    <span>{candidate.rating} estrelas · {candidate.userRatingCount || 0} avaliacoes</span>
+                  )}
                 </div>
                 <p>{candidate.reason}</p>
                 <p className="muted">{candidate.nextStep}</p>
@@ -288,24 +335,69 @@ function LeadsPage() {
       {selected && (
         <section className="card detail-panel">
           <h2>{selected.name}</h2>
-          <div className="detail-grid">
-            <div>
-              <strong>WhatsApp</strong>
-              <p>{selected.phone || 'A validar'}</p>
+          <form className="lead-edit-form" onSubmit={saveLead}>
+            <label>
+              Nome
+              <input
+                value={editForm.name}
+                onChange={(event) => setEditForm((current) => ({ ...current, name: event.target.value }))}
+                required
+              />
+            </label>
+            <label>
+              WhatsApp
+              <input
+                value={editForm.phone}
+                onChange={(event) => setEditForm((current) => ({ ...current, phone: event.target.value }))}
+                placeholder="Telefone ou WhatsApp"
+              />
+            </label>
+            <label>
+              Status
+              <select
+                value={editForm.status}
+                onChange={(event) => setEditForm((current) => ({ ...current, status: event.target.value }))}
+              >
+                {EDITABLE_STATUSES.map((status) => (
+                  <option key={status} value={status}>{status.replace('_', ' ')}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Bairro
+              <input
+                value={editForm.neighborhood}
+                onChange={(event) => setEditForm((current) => ({ ...current, neighborhood: event.target.value }))}
+              />
+            </label>
+            <label className="wide-field">
+              Endereco
+              <input
+                value={editForm.address}
+                onChange={(event) => setEditForm((current) => ({ ...current, address: event.target.value }))}
+              />
+            </label>
+            <label>
+              Instagram
+              <input
+                value={editForm.instagram}
+                onChange={(event) => setEditForm((current) => ({ ...current, instagram: event.target.value }))}
+              />
+            </label>
+            <label className="full-width">
+              Observacoes
+              <textarea
+                value={editForm.notes}
+                onChange={(event) => setEditForm((current) => ({ ...current, notes: event.target.value }))}
+                rows={4}
+              />
+            </label>
+            <div className="action-row full-width">
+              <button type="submit" className="primary" disabled={savingLead}>
+                {savingLead ? 'Salvando...' : 'Salvar dados do lead'}
+              </button>
             </div>
-            <div>
-              <strong>Status</strong>
-              <p>{selected.status.replace('_', ' ')}</p>
-            </div>
-            <div>
-              <strong>Bairro</strong>
-              <p>{selected.neighborhood || '—'}</p>
-            </div>
-            <div>
-              <strong>Instagram</strong>
-              <p>{selected.instagram || '—'}</p>
-            </div>
-          </div>
+          </form>
 
           <div className="action-row">
             <button className="primary" onClick={generateMessage}>

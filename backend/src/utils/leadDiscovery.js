@@ -1,11 +1,21 @@
+const config = require('../config');
 const { getOpenAIClient } = require('./openaiClient');
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
-const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
-
-function escapeOverpassValue(value) {
-  return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-}
+const GOOGLE_TEXT_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchText';
+const GOOGLE_FIELD_MASK = [
+  'places.id',
+  'places.displayName',
+  'places.formattedAddress',
+  'places.addressComponents',
+  'places.nationalPhoneNumber',
+  'places.internationalPhoneNumber',
+  'places.websiteUri',
+  'places.googleMapsUri',
+  'places.rating',
+  'places.userRatingCount',
+  'places.businessStatus',
+  'places.types',
+].join(',');
 
 function normalizeText(value) {
   return String(value || '')
@@ -15,55 +25,40 @@ function normalizeText(value) {
     .trim();
 }
 
-function extractAddress(tags = {}) {
-  const street = tags['addr:street'];
-  const number = tags['addr:housenumber'];
-  const suburb = tags['addr:suburb'] || tags['addr:neighbourhood'];
-  const city = tags['addr:city'];
-  return [street && number ? `${street}, ${number}` : street, suburb, city].filter(Boolean).join(' - ');
+function getAddressComponent(place, wantedTypes) {
+  const components = place.addressComponents || [];
+  const found = components.find((component) =>
+    wantedTypes.some((type) => component.types?.includes(type))
+  );
+  return found?.longText || found?.shortText || '';
 }
 
-function normalizePlace(element) {
-  const tags = element.tags || {};
-  const name = tags.name || tags.brand || tags.operator;
+function normalizeGooglePlace(place) {
+  const name = place.displayName?.text;
   if (!name) return null;
 
-  const social =
-    tags['contact:instagram'] ||
-    tags.instagram ||
-    tags['contact:facebook'] ||
-    tags.facebook ||
-    '';
+  const neighborhood = getAddressComponent(place, [
+    'neighborhood',
+    'sublocality',
+    'sublocality_level_1',
+    'administrative_area_level_3',
+  ]);
+  const city = getAddressComponent(place, ['locality', 'administrative_area_level_2']);
+  const phone = place.nationalPhoneNumber || place.internationalPhoneNumber || '';
 
   return {
-    externalId: `${element.type}/${element.id}`,
+    externalId: `google/${place.id}`,
     name,
-    phone: tags.phone || tags['contact:phone'] || tags.mobile || tags['contact:mobile'] || '',
-    neighborhood: tags['addr:suburb'] || tags['addr:neighbourhood'] || '',
-    address: extractAddress(tags),
-    instagram: social,
-    website: tags.website || tags['contact:website'] || '',
-    source: 'OpenStreetMap',
-  };
-}
-
-function normalizeNominatimPlace(place) {
-  const address = place.address || {};
-  const extra = place.extratags || {};
-  const name = place.name || address.shop || address.amenity;
-  if (!name) return null;
-
-  const street = address.road;
-  const number = address.house_number;
-  return {
-    externalId: `${place.osm_type}/${place.osm_id}`,
-    name,
-    phone: extra.phone || extra['contact:phone'] || '',
-    neighborhood: address.suburb || address.city_district || address.neighbourhood || '',
-    address: [street && number ? `${street}, ${number}` : street, address.suburb, address.city].filter(Boolean).join(' - '),
-    instagram: extra.instagram || extra['contact:instagram'] || '',
-    website: extra.website || extra['contact:website'] || '',
-    source: 'OpenStreetMap',
+    phone,
+    neighborhood,
+    address: place.formattedAddress || [neighborhood, city].filter(Boolean).join(' - '),
+    instagram: '',
+    website: place.websiteUri || '',
+    googleMapsUri: place.googleMapsUri || '',
+    rating: place.rating || null,
+    userRatingCount: place.userRatingCount || 0,
+    businessStatus: place.businessStatus || '',
+    source: 'Google Maps',
   };
 }
 
@@ -77,131 +72,71 @@ function dedupePlaces(places) {
   });
 }
 
-async function fetchBarbershopPlaces({ city, neighborhood, country = 'Brasil', limit = 20 }) {
-  const textPlaces = await fetchPlacesByText({ city, neighborhood, country, limit });
-  if (textPlaces.length > 0) return textPlaces;
-
-  const areaName = escapeOverpassValue(neighborhood || city);
-  const cityName = escapeOverpassValue(city);
-  const query = `
-    [out:json][timeout:25];
-    (
-      area["name"="${areaName}"]["boundary"="administrative"];
-      area["name"="${cityName}"]["boundary"="administrative"];
-    )->.searchArea;
-    (
-      nwr["shop"="hairdresser"]["name"](area.searchArea);
-      nwr["shop"="beauty"]["name"~"barbearia|barber|barbershop|barbeiro",i](area.searchArea);
-      nwr["name"~"barbearia|barber|barbershop|barbeiro",i](area.searchArea);
-    );
-    out tags center ${Number(limit) || 20};
-  `;
-
-  const response = await fetch(`${OVERPASS_URL}?data=${encodeURIComponent(query)}`, {
+async function searchGooglePlaces({ textQuery, pageSize }) {
+  const response = await fetch(GOOGLE_TEXT_SEARCH_URL, {
+    method: 'POST',
     headers: {
-      Accept: 'application/json',
-      'User-Agent': 'UltraLeads/1.0',
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': config.googleMapsApiKey,
+      'X-Goog-FieldMask': GOOGLE_FIELD_MASK,
     },
+    body: JSON.stringify({
+      textQuery,
+      languageCode: 'pt-BR',
+      regionCode: 'BR',
+      pageSize,
+      rankPreference: 'RELEVANCE',
+    }),
   });
 
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(`Falha na busca pública de lugares (${response.status}).`);
+    const message = data.error?.message || `Falha na busca do Google Places (${response.status}).`;
+    throw new Error(message);
   }
 
-  const data = await response.json();
-  const areaPlaces = dedupePlaces((data.elements || []).map(normalizePlace).filter(Boolean));
-  if (areaPlaces.length > 0) return dedupePlaces([...textPlaces, ...areaPlaces]);
-
-  const coordinates = await fetchCoordinates([neighborhood, city, country].filter(Boolean).join(', '));
-  if (!coordinates) return textPlaces;
-
-  const aroundPlaces = await fetchPlacesAroundCoordinates({ ...coordinates, limit });
-  return dedupePlaces([...textPlaces, ...aroundPlaces]);
+  return (data.places || []).map(normalizeGooglePlace).filter(Boolean);
 }
 
-async function fetchPlacesByText({ city, neighborhood, country, limit }) {
-  const region = [neighborhood, city, country].filter(Boolean).join(' ');
-  const queries = [`barbearia ${region}`, `barber shop ${region}`];
+async function fetchBarbershopPlaces({ city, neighborhood, country = 'Brasil', limit = 20 }) {
+  if (!config.googleMapsApiKey) {
+    throw new Error('Configure GOOGLE_MAPS_API_KEY para buscar leads no Google Maps.');
+  }
+
+  const region = [neighborhood, city, country].filter(Boolean).join(', ');
+  const queries = [
+    `barbearia em ${region}`,
+    `barber shop em ${region}`,
+    `barbeiro em ${region}`,
+    `barbearia agenda online em ${region}`,
+  ];
+  const pageSize = Math.min(Math.max(Number(limit) || 20, 1), 20);
   const results = [];
 
-  for (const query of queries) {
-    const url = `${NOMINATIM_URL}?format=json&limit=${Number(limit) || 20}&addressdetails=1&extratags=1&q=${encodeURIComponent(query)}`;
-    const response = await fetch(url, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'UltraLeads/1.0',
-      },
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      results.push(...(data || []).map(normalizeNominatimPlace).filter(Boolean));
-    }
+  for (const textQuery of queries) {
+    results.push(...await searchGooglePlaces({ textQuery, pageSize }));
+    if (dedupePlaces(results).length >= limit) break;
   }
 
   return dedupePlaces(results);
 }
 
-async function fetchCoordinates(query) {
-  const url = `${NOMINATIM_URL}?format=json&limit=1&q=${encodeURIComponent(query)}`;
-  const response = await fetch(url, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'UltraLeads/1.0',
-    },
-  });
-
-  if (!response.ok) return null;
-  const data = await response.json();
-  const first = data[0];
-  if (!first?.lat || !first?.lon) return null;
-  return { lat: Number(first.lat), lon: Number(first.lon) };
-}
-
-async function fetchPlacesAroundCoordinates({ lat, lon, limit }) {
-  const radius = 6000;
-  const query = `
-    [out:json][timeout:25];
-    (
-      node["shop"="hairdresser"]["name"](around:${radius},${lat},${lon});
-      way["shop"="hairdresser"]["name"](around:${radius},${lat},${lon});
-      relation["shop"="hairdresser"]["name"](around:${radius},${lat},${lon});
-      node["shop"="beauty"]["name"~"barbearia|barber|barbershop|barbeiro",i](around:${radius},${lat},${lon});
-      way["shop"="beauty"]["name"~"barbearia|barber|barbershop|barbeiro",i](around:${radius},${lat},${lon});
-      relation["shop"="beauty"]["name"~"barbearia|barber|barbershop|barbeiro",i](around:${radius},${lat},${lon});
-      node["name"~"barbearia|barber|barbershop|barbeiro",i](around:${radius},${lat},${lon});
-      way["name"~"barbearia|barber|barbershop|barbeiro",i](around:${radius},${lat},${lon});
-      relation["name"~"barbearia|barber|barbershop|barbeiro",i](around:${radius},${lat},${lon});
-    );
-    out tags center ${Number(limit) || 20};
-  `;
-
-  const response = await fetch(`${OVERPASS_URL}?data=${encodeURIComponent(query)}`, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'UltraLeads/1.0',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Falha na busca pública por coordenadas (${response.status}).`);
-  }
-
-  const data = await response.json();
-  return dedupePlaces((data.elements || []).map(normalizePlace).filter(Boolean));
-}
-
 function buildFallbackRanking(places) {
-  return places.map((place, index) => ({
-    externalId: place.externalId,
-    score: Math.max(55, 90 - index * 4),
-    reason: place.phone || place.instagram || place.website
-      ? 'Possui dados públicos de contato ou presença digital para validação rápida.'
-      : 'Aparece em fonte pública de lugares e deve ser validado antes do contato.',
-    nextStep: place.phone
-      ? 'Validar se o WhatsApp ainda pertence à barbearia antes de enviar mensagem.'
-      : 'Pesquisar WhatsApp no Google, Instagram ou Maps antes de abordar.',
-  }));
+  return places.map((place, index) => {
+    const hasContact = Boolean(place.phone || place.website || place.googleMapsUri);
+    const reviewSignal = Number(place.userRatingCount || 0);
+
+    return {
+      externalId: place.externalId,
+      score: Math.min(95, Math.max(58, 88 - index * 3 + Math.min(reviewSignal, 100) / 20)),
+      reason: hasContact
+        ? 'Encontrado no Google Maps com dados de contato e presenca publica para validacao.'
+        : 'Encontrado no Google Maps; exige validacao manual dos dados antes da abordagem.',
+      nextStep: place.phone
+        ? 'Validar se o telefone do perfil tambem atende WhatsApp antes de enviar mensagem.'
+        : 'Abrir o perfil no Google Maps e confirmar WhatsApp, Instagram ou responsavel.',
+    };
+  });
 }
 
 async function rankPlacesWithAI({ places, city, neighborhood, profile }) {
@@ -216,13 +151,13 @@ async function rankPlacesWithAI({ places, city, neighborhood, profile }) {
       {
         role: 'system',
         content:
-          'Você é um analista de prospecção B2B para um SaaS de agenda e atendimento para barbearias. Avalie somente os locais fornecidos; não invente telefone, endereço ou redes sociais.',
+          'Voce e um analista de prospeccao B2B para um SaaS de agenda e atendimento para barbearias. Avalie somente os locais fornecidos; nao invente telefone, endereco ou redes sociais.',
       },
       {
         role: 'user',
         content: JSON.stringify({
           objetivo:
-            'Priorize barbearias que parecem boas candidatas para vender um SaaS chamado UltraBarber.',
+            'Priorize barbearias encontradas no Google Maps/Perfil da Empresa que parecem boas candidatas para vender o UltraBarber.',
           cidade: city,
           bairro: neighborhood || null,
           perfilDesejado: profile || 'barbearias com fluxo de atendimento e potencial de agenda marcada',
@@ -232,8 +167,11 @@ async function rankPlacesWithAI({ places, city, neighborhood, profile }) {
             phone: place.phone,
             neighborhood: place.neighborhood,
             address: place.address,
-            instagram: place.instagram,
             website: place.website,
+            googleMapsUri: place.googleMapsUri,
+            rating: place.rating,
+            userRatingCount: place.userRatingCount,
+            businessStatus: place.businessStatus,
           })),
         }),
       },
@@ -290,8 +228,8 @@ async function discoverLeads(params) {
       return {
         ...place,
         score: Math.min(Math.max(Number(rank?.score || 60), 0), 100),
-        reason: rank?.reason || 'Encontrado em fonte pública de lugares; validar dados antes do contato.',
-        nextStep: rank?.nextStep || 'Confirmar WhatsApp e responsável antes de abordar.',
+        reason: rank?.reason || 'Encontrado no Google Maps; validar dados antes do contato.',
+        nextStep: rank?.nextStep || 'Confirmar WhatsApp e responsavel antes de abordar.',
       };
     })
     .sort((a, b) => b.score - a.score)
