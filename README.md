@@ -49,6 +49,7 @@ Você também pode usar os scripts de instalação:
 - Crie um serviço web apontando para este repositório ou envie com `railway up`.
 - Configure no serviço web as variáveis:
   - `MYSQL_URL=${{MySQL.MYSQL_URL}}`
+  - `EVOLUTION_API_URL` com a URL base da sua Evolution, por exemplo `https://sua-evolution.com` ou `https://sua-evolution.com/api`
   - `EVOLUTION_API_KEY`
   - `EVOLUTION_INSTANCE_ID`
   - `OPENAI_API_KEY`
@@ -58,6 +59,7 @@ Você também pode usar os scripts de instalação:
 - O backend aplica automaticamente `backend/sql/schema.sql` no database informado por `MYSQL_URL`.
 - O backend serve o frontend estático de `frontend/dist` em produção.
 - A busca de novos leads usa a ferramenta de pesquisa web da OpenAI via `OPENAI_API_KEY`, sem depender de API paga do Google. A IA pesquisa fontes públicas da internet, estrutura os candidatos e explica a prioridade.
+- O envio via Evolution usa `POST /message/sendText/{instance}` com header `apikey`, conforme a API v2.
 
 ## Observações
 

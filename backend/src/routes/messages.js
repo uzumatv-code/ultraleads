@@ -93,7 +93,10 @@ router.post('/:leadId/send', async (req, res) => {
     res.json({ success: true, remainingToday: Math.max(config.dailyLimit - sentToday - 1, 0) });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Erro ao enviar mensagem pelo WhatsApp.' });
+    res.status(error.status || 500).json({
+      error: error.message || 'Erro ao enviar mensagem pelo WhatsApp.',
+      details: error.details,
+    });
   }
 });
 

@@ -49,8 +49,9 @@ module.exports = {
   port,
   db: dbConfig,
   evolution: {
+    apiUrl: process.env.EVOLUTION_API_URL || process.env.EVOLUTION_SERVER_URL,
     apiKey: process.env.EVOLUTION_API_KEY,
-    instanceId: process.env.EVOLUTION_INSTANCE_ID,
+    instanceId: process.env.EVOLUTION_INSTANCE_ID || process.env.EVOLUTION_INSTANCE_NAME,
   },
   openaiKey: process.env.OPENAI_API_KEY,
   dailyLimit: Number(process.env.DAILY_SEND_LIMIT || 10),
