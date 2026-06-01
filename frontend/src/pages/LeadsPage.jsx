@@ -77,6 +77,12 @@ function LeadsPage() {
     () => (statusFilter === 'todos' ? leads : leads.filter((lead) => lead.status === statusFilter)),
     [leads, statusFilter]
   );
+  const leadStats = useMemo(() => ({
+    total: leads.length,
+    interessados: leads.filter((lead) => lead.status === 'interessado').length,
+    respostas: leads.filter((lead) => ['respondeu', 'interessado', 'reuniao_marcada'].includes(lead.status)).length,
+    clientes: leads.filter((lead) => lead.status === 'cliente').length,
+  }), [leads]);
 
   useEffect(() => {
     loadLeads();
@@ -120,6 +126,15 @@ function LeadsPage() {
   const openLeadExternal = (lead) => {
     const url = getWhatsAppUrl(lead.phone) || getInstagramUrl(lead.instagram) || getGoogleMapsUrl(lead);
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const closeLeadModal = () => {
+    setSelected(null);
+    setDetailMode('view');
+    setSuggestion('');
+    setMessage('');
+    setPreviewText('');
+    setHistory([]);
   };
 
   const saveLead = async (event) => {
@@ -261,6 +276,25 @@ function LeadsPage() {
         <h1>Leads</h1>
         <p>Gerencie as barbearias encontradas e envie mensagens de forma personalizada.</p>
       </header>
+
+      <section className="lead-stats">
+        <div>
+          <span>Total</span>
+          <strong>{leadStats.total}</strong>
+        </div>
+        <div>
+          <span>Respostas</span>
+          <strong>{leadStats.respostas}</strong>
+        </div>
+        <div>
+          <span>Interessados</span>
+          <strong>{leadStats.interessados}</strong>
+        </div>
+        <div>
+          <span>Clientes</span>
+          <strong>{leadStats.clientes}</strong>
+        </div>
+      </section>
 
       <section className="card filter-bar">
         <label>
@@ -410,7 +444,22 @@ function LeadsPage() {
 
       {selected && (
         <section className="card detail-panel">
-          <h2>{selected.name}</h2>
+          <div className="modal-header">
+            <div>
+              <span className={`status ${selected.status}`}>{formatStatus(selected.status)}</span>
+              <h2>{selected.name}</h2>
+              <p>{selected.neighborhood || selected.address || 'Localizacao a validar'}</p>
+            </div>
+            <button className="icon-button" onClick={closeLeadModal} aria-label="Fechar modal">×</button>
+          </div>
+          <div className="modal-tabs">
+            <button className={detailMode === 'view' ? 'active' : ''} onClick={() => setDetailMode('view')}>
+              Visao geral
+            </button>
+            <button className={detailMode === 'edit' ? 'active' : ''} onClick={() => setDetailMode('edit')}>
+              Editar
+            </button>
+          </div>
           {detailMode === 'view' ? (
             <div className="lead-summary">
               <div>
@@ -538,7 +587,7 @@ function LeadsPage() {
           </div>
 
           <div className="card">
-            <h3>Histórico de mensagens</h3>
+            <h3>Historico de mensagens</h3>
             {history.length === 0 ? (
               <p>Nenhuma mensagem enviada ainda.</p>
             ) : (
