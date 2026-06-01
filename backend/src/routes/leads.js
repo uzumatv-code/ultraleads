@@ -173,6 +173,20 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+router.delete('/:id', async (req, res) => {
+  try {
+    const pool = await getPool();
+    const [result] = await pool.query('DELETE FROM leads WHERE id = ?', [req.params.id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Lead nÃ£o encontrado.' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao excluir lead.' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const pool = await getPool();

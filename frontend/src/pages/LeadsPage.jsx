@@ -26,10 +26,35 @@ function buildLeadForm(lead = {}) {
   };
 }
 
+function formatStatus(status) {
+  return String(status || 'novo').replace('_', ' ');
+}
+
+function getGoogleMapsUrl(lead) {
+  const notesUrl = String(lead.notes || '').match(/https?:\/\/[^\s]+/i)?.[0];
+  if (notesUrl) return notesUrl;
+  const query = [lead.name, lead.address, lead.neighborhood].filter(Boolean).join(' ');
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
+function getInstagramUrl(instagram) {
+  if (!instagram) return '';
+  if (/^https?:\/\//i.test(instagram)) return instagram;
+  return `https://instagram.com/${String(instagram).replace('@', '').trim()}`;
+}
+
+function getWhatsAppUrl(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (!digits) return '';
+  const normalized = digits.length <= 11 ? `55${digits}` : digits;
+  return `https://wa.me/${normalized}`;
+}
+
 function LeadsPage() {
   const [leads, setLeads] = useState([]);
   const [statusFilter, setStatusFilter] = useState('todos');
   const [selected, setSelected] = useState(null);
+  const [detailMode, setDetailMode] = useState('view');
   const [suggestion, setSuggestion] = useState('');
   const [message, setMessage] = useState('');
   const [history, setHistory] = useState([]);
@@ -70,8 +95,9 @@ function LeadsPage() {
     }
   };
 
-  const openLead = async (lead) => {
+  const openLead = async (lead, mode = 'view') => {
     setSelected(lead);
+    setDetailMode(mode);
     setSuggestion('');
     setMessage('');
     setPreviewText('');
@@ -87,6 +113,11 @@ function LeadsPage() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const openLeadExternal = (lead) => {
+    const url = getWhatsAppUrl(lead.phone) || getInstagramUrl(lead.instagram) || getGoogleMapsUrl(lead);
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const saveLead = async (event) => {
@@ -112,6 +143,28 @@ function LeadsPage() {
       setNotification(err.message || 'Erro ao salvar lead.');
     } finally {
       setSavingLead(false);
+    }
+  };
+
+  const deleteLead = async (lead) => {
+    const confirmed = window.confirm(`Excluir ${lead.name}? Esta acao remove o lead e o historico de mensagens.`);
+    if (!confirmed) return;
+
+    setNotification('Excluindo lead...');
+    try {
+      const res = await fetch(`/api/leads/${lead.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha ao excluir lead');
+
+      setLeads((current) => current.filter((item) => item.id !== lead.id));
+      if (selected?.id === lead.id) {
+        setSelected(null);
+        setHistory([]);
+        setPreviewText('');
+      }
+      setNotification('Lead excluido.');
+    } catch (err) {
+      setNotification(err.message || 'Erro ao excluir lead.');
     }
   };
 
@@ -309,33 +362,86 @@ function LeadsPage() {
       {loading ? (
         <div className="card">Carregando leads...</div>
       ) : (
-        <div className="grid lead-list">
+        <section className="lead-table card">
           {filteredLeads.length === 0 ? (
-            <div className="card">Nenhum lead encontrado neste filtro.</div>
+            <div className="empty-state">Nenhum lead encontrado neste filtro.</div>
           ) : (
-            filteredLeads.map((lead) => (
-              <div key={lead.id} className="card lead-card">
-                <div>
-                  <strong>{lead.name}</strong>
-                  <p>{lead.phone || 'WhatsApp a validar'}</p>
-                  <p>{lead.neighborhood || lead.address}</p>
-                </div>
-                <div className="lead-meta">
-                  <span className={`status ${lead.status}`}>{lead.status.replace('_', ' ')}</span>
-                  <button className="secondary" onClick={() => openLead(lead)}>
-                    Detalhes
-                  </button>
-                </div>
+            <>
+              <div className="lead-table-header">
+                <span>Lead</span>
+                <span>Status</span>
+                <span>Contato</span>
+                <span>Local</span>
+                <span>Acoes</span>
               </div>
-            ))
+              <div className="lead-table-body">
+                {filteredLeads.map((lead) => (
+                  <article key={lead.id} className={`lead-row ${selected?.id === lead.id ? 'selected' : ''}`}>
+                    <div className="lead-name-cell">
+                      <strong>{lead.name}</strong>
+                      <small>{lead.notes ? 'Com observacoes' : 'Sem observacoes'}</small>
+                    </div>
+                    <div>
+                      <span className={`status ${lead.status}`}>{formatStatus(lead.status)}</span>
+                    </div>
+                    <div className="lead-muted-cell">
+                      <span>{lead.phone || 'WhatsApp a validar'}</span>
+                      <small>{lead.instagram || 'Instagram nao informado'}</small>
+                    </div>
+                    <div className="lead-muted-cell">
+                      <span>{lead.neighborhood || 'Bairro a validar'}</span>
+                      <small>{lead.address || 'Endereco nao informado'}</small>
+                    </div>
+                    <div className="lead-actions">
+                      <button className="secondary compact" onClick={() => openLead(lead, 'view')}>Ver</button>
+                      <button className="secondary compact" onClick={() => openLeadExternal(lead)}>Abrir</button>
+                      <button className="secondary compact" onClick={() => openLead(lead, 'edit')}>Editar</button>
+                      <button className="danger compact" onClick={() => deleteLead(lead)}>Excluir</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
           )}
-        </div>
+        </section>
       )}
 
       {selected && (
         <section className="card detail-panel">
           <h2>{selected.name}</h2>
-          <form className="lead-edit-form" onSubmit={saveLead}>
+          {detailMode === 'view' ? (
+            <div className="lead-summary">
+              <div>
+                <span>Status</span>
+                <strong className={`status ${selected.status}`}>{formatStatus(selected.status)}</strong>
+              </div>
+              <div>
+                <span>WhatsApp</span>
+                <strong>{selected.phone || 'A validar'}</strong>
+              </div>
+              <div>
+                <span>Bairro</span>
+                <strong>{selected.neighborhood || 'A validar'}</strong>
+              </div>
+              <div>
+                <span>Endereco</span>
+                <strong>{selected.address || 'Nao informado'}</strong>
+              </div>
+              <div>
+                <span>Instagram</span>
+                <strong>{selected.instagram || 'Nao informado'}</strong>
+              </div>
+              <div className="full-width">
+                <span>Observacoes</span>
+                <p>{selected.notes || 'Nenhuma observacao cadastrada.'}</p>
+              </div>
+              <div className="action-row full-width">
+                <button className="secondary" onClick={() => openLeadExternal(selected)}>Abrir lead</button>
+                <button className="primary" onClick={() => setDetailMode('edit')}>Editar lead</button>
+              </div>
+            </div>
+          ) : (
+            <form className="lead-edit-form" onSubmit={saveLead}>
             <label>
               Nome
               <input
@@ -397,7 +503,8 @@ function LeadsPage() {
                 {savingLead ? 'Salvando...' : 'Salvar dados do lead'}
               </button>
             </div>
-          </form>
+            </form>
+          )}
 
           <div className="action-row">
             <button className="primary" onClick={generateMessage}>
