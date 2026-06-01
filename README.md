@@ -44,10 +44,17 @@ Você também pode usar os scripts de instalação:
 
 ## Deploy no Railway
 
-- Configure uma instância MySQL no Railway.
-- Defina as variáveis de ambiente em Railway com os valores de `backend/.env`.
-- O Railway usa `npm start` na raiz, que agora faz o build do frontend e inicia o backend.
-- Configure o comando de inicialização para `npm start`, se necessário.
+- Crie um serviço MySQL no projeto Railway.
+- Crie um serviço web apontando para este repositório ou envie com `railway up`.
+- Configure no serviço web as variáveis:
+  - `MYSQL_URL=${{MySQL.MYSQL_URL}}`
+  - `EVOLUTION_API_KEY`
+  - `EVOLUTION_INSTANCE_ID`
+  - `OPENAI_API_KEY`
+  - `DAILY_SEND_LIMIT=10`
+- O `Dockerfile` faz o build do frontend durante a imagem e inicia apenas o backend em produção.
+- O `railway.json` define o start command `npm run start --workspace backend` e healthcheck em `/api/health`.
+- O backend aplica automaticamente `backend/sql/schema.sql` no database informado por `MYSQL_URL`.
 - O backend serve o frontend estático de `frontend/dist` em produção.
 
 ## Observações

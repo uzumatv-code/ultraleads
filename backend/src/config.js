@@ -36,7 +36,12 @@ const defaultDb = {
   name: process.env.DB_NAME || process.env.MYSQL_DATABASE || process.env.MYSQL_DB || 'ultrabarber_crm',
 };
 
-const dbConfig = dbUrl || defaultDb;
+const dbConfig = dbUrl
+  ? {
+      ...dbUrl,
+      name: process.env.DB_NAME || process.env.MYSQL_DATABASE || process.env.MYSQL_DB || dbUrl.name,
+    }
+  : defaultDb;
 const envPort = Number(process.env.PORT || 0);
 const port = envPort && dbConfig.port && envPort === dbConfig.port ? 8080 : envPort || 8080;
 

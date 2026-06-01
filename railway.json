@@ -3,6 +3,7 @@
     "installCommand": "npm ci"
   },
   "deploy": {
-    "startCommand": "npm start"
+    "startCommand": "npm run start --workspace backend",
+    "healthcheckPath": "/api/health"
   }
 }
