@@ -1,6 +1,7 @@
 const express = require('express');
 const { getPool } = require('../db');
 const config = require('../config');
+const { getOpenAIClient } = require('../utils/openaiClient');
 
 const router = express.Router();
 
@@ -28,14 +29,13 @@ router.post('/:leadId/generate', async (req, res) => {
 
     if (config.openaiKey) {
       try {
-        const { Configuration, OpenAIApi } = require('openai');
-        const openai = new OpenAIApi(new Configuration({ apiKey: config.openaiKey }));
-        const response = await openai.createChatCompletion({
+        const openai = getOpenAIClient();
+        const response = await openai.chat.completions.create({
           model: 'gpt-4o-mini',
           messages: [{ role: 'user', content: prompt }],
           max_tokens: 120,
         });
-        text = response.data.choices?.[0]?.message?.content?.trim();
+        text = response.choices?.[0]?.message?.content?.trim();
       } catch (openaiError) {
         console.warn('OpenAI generation failed:', openaiError?.message || openaiError);
       }

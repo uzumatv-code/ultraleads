@@ -7,6 +7,7 @@ Sistema simples de CRM de prospecção para vender o SaaS UltraBarber a barbeari
 - Cadastro de leads com dados de contato e status.
 - Filtro de leads por status.
 - Geração de mensagem inicial personalizada com IA.
+- Busca de novos leads com fonte pública de lugares e priorização por IA.
 - Envio manual de WhatsApp via Evolution API com limite diário.
 - Histórico de mensagens por lead.
 - Sugestão de follow-up após 2 dias sem resposta.
@@ -56,6 +57,7 @@ Você também pode usar os scripts de instalação:
 - O `railway.json` define o start command `npm run start --workspace backend` e healthcheck em `/api/health`.
 - O backend aplica automaticamente `backend/sql/schema.sql` no database informado por `MYSQL_URL`.
 - O backend serve o frontend estático de `frontend/dist` em produção.
+- A busca de novos leads usa dados públicos do OpenStreetMap/Nominatim e usa `OPENAI_API_KEY` para ranquear e explicar os candidatos.
 
 ## Observações
 

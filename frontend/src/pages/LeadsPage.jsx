@@ -21,6 +21,15 @@ function LeadsPage() {
   const [loading, setLoading] = useState(false);
   const [previewText, setPreviewText] = useState('');
   const [notification, setNotification] = useState('');
+  const [discoverForm, setDiscoverForm] = useState({
+    city: '',
+    neighborhood: '',
+    profile: 'barbearias com agenda manual, fila de espera ou forte movimento por WhatsApp',
+    limit: 8,
+  });
+  const [discovering, setDiscovering] = useState(false);
+  const [candidates, setCandidates] = useState([]);
+  const [importingId, setImportingId] = useState('');
 
   const filteredLeads = useMemo(
     () => (statusFilter === 'todos' ? leads : leads.filter((lead) => lead.status === statusFilter)),
@@ -78,6 +87,10 @@ function LeadsPage() {
 
   const sendWhatsApp = async () => {
     if (!selected || !previewText) return;
+    if (!selected.phone) {
+      setNotification('Valide o WhatsApp deste lead antes de enviar.');
+      return;
+    }
     setNotification('Enviando mensagem...');
     try {
       const res = await fetch(`/api/messages/${selected.id}/send`, {
@@ -92,6 +105,54 @@ function LeadsPage() {
       openLead(selected);
     } catch (err) {
       setNotification(err.message || 'Erro no envio do WhatsApp.');
+    }
+  };
+
+  const discoverLeads = async (event) => {
+    event.preventDefault();
+    setDiscovering(true);
+    setCandidates([]);
+    setNotification('Buscando leads em fontes públicas e priorizando com IA...');
+    try {
+      const res = await fetch('/api/leads/discover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(discoverForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha na busca');
+      setCandidates(data.candidates || []);
+      setNotification(
+        data.candidates?.length
+          ? 'Leads encontrados. Revise os dados antes de importar.'
+          : 'Nenhum candidato encontrado para esta região.'
+      );
+    } catch (err) {
+      setNotification(err.message || 'Erro ao buscar novos leads.');
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  const importCandidate = async (candidate) => {
+    setImportingId(candidate.externalId);
+    try {
+      const res = await fetch('/api/leads/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(candidate),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha ao importar lead');
+      setNotification('Lead importado para o CRM.');
+      setCandidates((current) =>
+        current.map((item) => (item.externalId === candidate.externalId ? { ...item, duplicate: true } : item))
+      );
+      await loadLeads();
+    } catch (err) {
+      setNotification(err.message || 'Erro ao importar lead.');
+    } finally {
+      setImportingId('');
     }
   };
 
@@ -115,6 +176,89 @@ function LeadsPage() {
         </label>
       </section>
 
+      <section className="card discovery-panel">
+        <div className="section-heading">
+          <div>
+            <h2>Buscar novos leads com IA</h2>
+            <p>Encontre barbearias em fontes públicas, priorize oportunidades e importe apenas o que fizer sentido.</p>
+          </div>
+        </div>
+        <form className="discovery-form" onSubmit={discoverLeads}>
+          <label>
+            Cidade
+            <input
+              value={discoverForm.city}
+              onChange={(event) => setDiscoverForm((current) => ({ ...current, city: event.target.value }))}
+              placeholder="Ex.: São Paulo"
+              required
+            />
+          </label>
+          <label>
+            Bairro
+            <input
+              value={discoverForm.neighborhood}
+              onChange={(event) => setDiscoverForm((current) => ({ ...current, neighborhood: event.target.value }))}
+              placeholder="Ex.: Pinheiros"
+            />
+          </label>
+          <label>
+            Quantidade
+            <select
+              value={discoverForm.limit}
+              onChange={(event) => setDiscoverForm((current) => ({ ...current, limit: Number(event.target.value) }))}
+            >
+              {[5, 8, 12, 16].map((amount) => (
+                <option key={amount} value={amount}>{amount}</option>
+              ))}
+            </select>
+          </label>
+          <label className="full-width">
+            Perfil ideal
+            <textarea
+              value={discoverForm.profile}
+              onChange={(event) => setDiscoverForm((current) => ({ ...current, profile: event.target.value }))}
+              rows={3}
+            />
+          </label>
+          <button type="submit" className="primary" disabled={discovering}>
+            {discovering ? 'Buscando...' : 'Buscar leads'}
+          </button>
+        </form>
+
+        {candidates.length > 0 && (
+          <div className="candidate-list">
+            {candidates.map((candidate) => (
+              <article key={candidate.externalId} className="candidate-card">
+                <div className="candidate-main">
+                  <div>
+                    <strong>{candidate.name}</strong>
+                    <p>{candidate.address || candidate.neighborhood || 'Localização a validar'}</p>
+                  </div>
+                  <span className="score">{candidate.score}%</span>
+                </div>
+                <div className="candidate-data">
+                  <span>{candidate.phone || 'WhatsApp a pesquisar'}</span>
+                  <span>{candidate.instagram || candidate.website || 'Presença digital a validar'}</span>
+                </div>
+                <p>{candidate.reason}</p>
+                <p className="muted">{candidate.nextStep}</p>
+                <button
+                  className={candidate.duplicate ? 'secondary' : 'primary'}
+                  disabled={candidate.duplicate || importingId === candidate.externalId}
+                  onClick={() => importCandidate(candidate)}
+                >
+                  {candidate.duplicate
+                    ? 'Já está no CRM'
+                    : importingId === candidate.externalId
+                      ? 'Importando...'
+                      : 'Importar lead'}
+                </button>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
       {loading ? (
         <div className="card">Carregando leads...</div>
       ) : (
@@ -126,7 +270,7 @@ function LeadsPage() {
               <div key={lead.id} className="card lead-card">
                 <div>
                   <strong>{lead.name}</strong>
-                  <p>{lead.phone}</p>
+                  <p>{lead.phone || 'WhatsApp a validar'}</p>
                   <p>{lead.neighborhood || lead.address}</p>
                 </div>
                 <div className="lead-meta">
@@ -147,7 +291,7 @@ function LeadsPage() {
           <div className="detail-grid">
             <div>
               <strong>WhatsApp</strong>
-              <p>{selected.phone}</p>
+              <p>{selected.phone || 'A validar'}</p>
             </div>
             <div>
               <strong>Status</strong>
@@ -186,7 +330,7 @@ function LeadsPage() {
               />
             </label>
             <div className="action-row">
-              <button className="primary" onClick={sendWhatsApp} disabled={!previewText}>
+              <button className="primary" onClick={sendWhatsApp} disabled={!previewText || !selected.phone}>
                 Enviar WhatsApp
               </button>
             </div>

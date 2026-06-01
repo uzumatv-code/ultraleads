@@ -1,5 +1,6 @@
 const express = require('express');
 const { getPool } = require('../db');
+const { discoverLeads, normalizeText } = require('../utils/leadDiscovery');
 const router = express.Router();
 
 const VALID_STATUSES = [
@@ -33,6 +34,10 @@ router.post('/', async (req, res) => {
   const { name, phone, neighborhood, address, instagram, notes, status } = req.body;
   const leadStatus = VALID_STATUSES.includes(status) ? status : 'novo';
 
+  if (!name || typeof name !== 'string') {
+    return res.status(400).json({ error: 'Nome da barbearia é obrigatório.' });
+  }
+
   try {
     const pool = await getPool();
     const [result] = await pool.query(
@@ -44,6 +49,88 @@ router.post('/', async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao cadastrar lead.' });
+  }
+});
+
+router.post('/discover', async (req, res) => {
+  const { city, neighborhood, country, limit, profile } = req.body;
+  const cleanCity = String(city || '').trim();
+
+  if (!cleanCity) {
+    return res.status(400).json({ error: 'Informe a cidade para buscar leads.' });
+  }
+
+  try {
+    const pool = await getPool();
+    const [existingRows] = await pool.query('SELECT id, name, phone FROM leads');
+    const existingNames = new Set(existingRows.map((lead) => normalizeText(lead.name)));
+    const existingPhones = new Set(existingRows.map((lead) => normalizeText(lead.phone)).filter(Boolean));
+
+    const candidates = await discoverLeads({
+      city: cleanCity,
+      neighborhood: String(neighborhood || '').trim(),
+      country: String(country || 'Brasil').trim(),
+      limit,
+      profile: String(profile || '').trim(),
+    });
+
+    res.json({
+      candidates: candidates.map((candidate) => ({
+        ...candidate,
+        duplicate:
+          existingNames.has(normalizeText(candidate.name)) ||
+          (candidate.phone && existingPhones.has(normalizeText(candidate.phone))),
+      })),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message || 'Erro ao buscar novos leads.' });
+  }
+});
+
+router.post('/import', async (req, res) => {
+  const { name, phone, neighborhood, address, instagram, notes, status, source, reason, nextStep } = req.body;
+  const leadStatus = VALID_STATUSES.includes(status) ? status : 'novo';
+
+  if (!name || typeof name !== 'string') {
+    return res.status(400).json({ error: 'Nome da barbearia é obrigatório.' });
+  }
+
+  const aiNotes = [
+    notes,
+    source ? `Fonte: ${source}` : null,
+    reason ? `Motivo IA: ${reason}` : null,
+    nextStep ? `Próximo passo: ${nextStep}` : null,
+  ].filter(Boolean).join('\n');
+
+  try {
+    const pool = await getPool();
+    const [existingRows] = await pool.query(
+      'SELECT * FROM leads WHERE LOWER(name) = LOWER(?) OR (phone IS NOT NULL AND phone <> "" AND phone = ?) LIMIT 1',
+      [name.trim(), phone || '']
+    );
+
+    if (existingRows[0]) {
+      return res.status(409).json({ error: 'Este lead parece já estar cadastrado.', lead: existingRows[0] });
+    }
+
+    const [result] = await pool.query(
+      'INSERT INTO leads (name, phone, neighborhood, address, instagram, notes, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        name.trim(),
+        phone || null,
+        neighborhood || null,
+        address || null,
+        instagram || null,
+        aiNotes || null,
+        leadStatus,
+      ]
+    );
+    const [rows] = await pool.query('SELECT * FROM leads WHERE id = ?', [result.insertId]);
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao importar lead.' });
   }
 });
 
